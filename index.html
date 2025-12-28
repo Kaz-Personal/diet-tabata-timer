@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Tabata Training Timer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        .font-digital {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .bg-base-black {
+            background: #000000;
+        }
+        /* iPhone Safari用設定 */
+        input[type="number"] {
+            font-size: 16px !important; 
+            -moz-appearance: textfield;
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        /* セーフエリア対応 */
+        .safe-pb {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .safe-pt {
+            padding-top: env(safe-area-inset-top);
+        }
+        /* 背景画像レイヤー (透明度70% & カバー表示) */
+        .bg-image-layer {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            object-fit: cover; /* 画像を比率を保ったまま切り取り */
+            opacity: 0.7;
+            pointer-events: none;
+        }
+        .content-layer {
+            position: relative;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-base-black min-h-screen text-white flex flex-col items-center safe-pt safe-pb overflow-x-hidden">
+
+    <!-- アップロードされた画像を背景に設定 -->
+    <img src="スクリーンショット 2025-12-28 12.57.56.jpg" alt="Training Background" class="bg-image-layer" onerror="this.src='https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=2070&auto=format&fit=crop'">
+
+    <div id="app" class="content-layer w-full max-w-[390px] flex flex-col min-h-screen lg:min-h-0 lg:h-auto lg:rounded-3xl lg:mt-10 bg-zinc-950/40 backdrop-blur-md overflow-hidden border-x border-white/5 shadow-2xl">
+        
+        <!-- Header -->
+        <div class="p-4 text-center border-b border-zinc-800/50">
+            <h1 class="text-xl font-bold tracking-[0.2em] text-orange-500 uppercase drop-shadow-md">Tabata Timer</h1>
+        </div>
+
+        <!-- Timer Display Section -->
+        <div id="display-section" class="flex-grow flex flex-col items-center justify-center p-6 py-12">
+            <div id="status-label" class="text-sm font-bold text-zinc-200 mb-4 uppercase tracking-[0.4em] drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">Ready</div>
+            <div id="timer-display" class="text-8xl font-digital font-bold text-white drop-shadow-[0_0_35px_rgba(0,0,0,1)]">00:00</div>
+            <div id="set-counter" class="mt-6 px-6 py-2 bg-black/70 backdrop-blur-xl rounded-full text-sm font-bold text-zinc-300 border border-white/20 shadow-lg">Set: 0 / 0</div>
+        </div>
+
+        <!-- Controls / Settings Section -->
+        <div id="controls-section" class="p-6 bg-zinc-900/95 rounded-t-[2.5rem] border-t border-white/10 shadow-[0_-10px_50px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+            
+            <!-- Settings Grid -->
+            <div id="settings-grid" class="grid grid-cols-2 gap-3 mb-8">
+                <div class="bg-black/50 p-3 rounded-2xl border border-white/10">
+                    <label class="text-[10px] text-zinc-400 mb-1 block uppercase font-bold tracking-wider">Prepare</label>
+                    <input type="number" id="input-prepare" value="10" class="w-full bg-transparent text-xl font-bold text-white focus:outline-none">
+                </div>
+                <div class="bg-black/50 p-3 rounded-2xl border border-white/10">
+                    <label class="text-[10px] text-zinc-400 mb-1 block uppercase font-bold tracking-wider">Work</label>
+                    <input type="number" id="input-work" value="20" class="w-full bg-transparent text-xl font-bold text-white focus:outline-none text-red-500">
+                </div>
+                <div class="bg-black/50 p-3 rounded-2xl border border-white/10">
+                    <label class="text-[10px] text-zinc-400 mb-1 block uppercase font-bold tracking-wider">Rest</label>
+                    <input type="number" id="input-rest" value="10" class="w-full bg-transparent text-xl font-bold text-white focus:outline-none text-blue-500">
+                </div>
+                <div class="bg-black/50 p-3 rounded-2xl border border-white/10">
+                    <label class="text-[10px] text-zinc-400 mb-1 block uppercase font-bold tracking-wider">Sets</label>
+                    <input type="number" id="input-sets" value="8" class="w-full bg-transparent text-xl font-bold text-white focus:outline-none">
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-col gap-3 pb-4">
+                <button id="btn-start" class="w-full bg-orange-600 active:bg-orange-700 text-white font-black text-xl py-5 rounded-2xl transition-all shadow-[0_4px_30px_rgba(234,88,12,0.4)] active:scale-[0.98] select-none">
+                    START
+                </button>
+                <button id="btn-reset" class="w-full bg-zinc-800/90 active:bg-zinc-700 text-zinc-400 font-bold py-3 rounded-xl transition-all active:scale-[0.98] text-sm select-none">
+                    RESET
+                </button>
+            </div>
+        </div>
+
+        <!-- Finish Overlay -->
+        <div id="finish-overlay" class="hidden fixed inset-0 bg-black/90 backdrop-blur-lg flex flex-col items-center justify-center z-50 p-6 text-center">
+            <div class="mb-6 p-6 bg-orange-500 rounded-full animate-bounce shadow-[0_0_50px_rgba(249,115,22,0.6)]">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+                </svg>
+            </div>
+            <h2 class="text-4xl font-black text-white mb-2">COMPLETE!</h2>
+            <p class="text-zinc-400 mb-10 font-medium">素晴らしいトレーニングでした！</p>
+            <button id="btn-close-overlay" class="w-full max-w-xs bg-white text-black py-4 rounded-2xl font-black text-lg shadow-xl active:scale-95 transition-transform">
+                CLOSE
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let timer = null;
+        let timeLeft = 0;
+        let currentSet = 1;
+        let totalSets = 8;
+        let phase = 'idle'; 
+        
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        const display = document.getElementById('timer-display');
+        const statusLabel = document.getElementById('status-label');
+        const setCounter = document.getElementById('set-counter');
+        const btnStart = document.getElementById('btn-start');
+        const btnReset = document.getElementById('btn-reset');
+        const overlay = document.getElementById('finish-overlay');
+        
+        const inPrepare = document.getElementById('input-prepare');
+        const inWork = document.getElementById('input-work');
+        const inRest = document.getElementById('input-rest');
+        const inSets = document.getElementById('input-sets');
+
+        function playPo() { playBeep(440, 0.08); }
+        function playPon() { playBeep(880, 0.3); }
+
+        function playBeep(frequency, duration) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function speak(text) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 1.2; 
+            utterance.pitch = 1.5; 
+            utterance.volume = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function updateUI() {
+            display.innerText = formatTime(timeLeft);
+            setCounter.innerText = `Set: ${currentSet} / ${totalSets}`;
+            
+            if (phase === 'work') {
+                document.body.style.backgroundColor = "rgba(127, 29, 29, 0.4)";
+                statusLabel.innerText = "WORK";
+                statusLabel.className = "text-sm font-bold text-red-500 mb-4 uppercase tracking-[0.4em] animate-pulse";
+            } else if (phase === 'rest') {
+                document.body.style.backgroundColor = "rgba(30, 58, 138, 0.4)";
+                statusLabel.innerText = "REST";
+                statusLabel.className = "text-sm font-bold text-blue-400 mb-4 uppercase tracking-[0.4em]";
+            } else if (phase === 'prepare') {
+                document.body.style.backgroundColor = "rgba(124, 45, 18, 0.4)";
+                statusLabel.innerText = "GET READY";
+                statusLabel.className = "text-sm font-bold text-orange-400 mb-4 uppercase tracking-[0.4em]";
+            } else {
+                document.body.style.backgroundColor = "#000000";
+                statusLabel.innerText = "Ready";
+                statusLabel.className = "text-sm font-bold text-zinc-300 mb-4 uppercase tracking-[0.4em]";
+            }
+        }
+
+        function startTimer() {
+            if (timer) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+
+            totalSets = parseInt(inSets.value) || 1;
+            currentSet = 1;
+            phase = 'prepare';
+            timeLeft = parseInt(inPrepare.value) || 0;
+            
+            updateUI();
+            speak("Get ready");
+
+            timer = setInterval(() => {
+                if (timeLeft > 0) {
+                    if (timeLeft === 4 || timeLeft === 3 || timeLeft === 2) {
+                        playPo();
+                    } 
+                    else if (timeLeft === 1) {
+                        playPon();
+                    }
+                    timeLeft--;
+                } else {
+                    nextPhase();
+                }
+                updateUI();
+            }, 1000);
+
+            btnStart.disabled = true;
+            btnStart.innerText = "RUNNING...";
+            btnStart.classList.replace('bg-orange-600', 'bg-zinc-800');
+        }
+
+        function nextPhase() {
+            if (phase === 'prepare') {
+                phase = 'work';
+                timeLeft = parseInt(inWork.value) || 1;
+                announceSet("Work"); 
+            } else if (phase === 'work') {
+                if (currentSet >= totalSets) {
+                    completeWorkout();
+                } else {
+                    phase = 'rest';
+                    timeLeft = parseInt(inRest.value) || 1;
+                    speak("Rest"); 
+                }
+            } else if (phase === 'rest') {
+                currentSet++;
+                phase = 'work';
+                timeLeft = parseInt(inWork.value) || 1;
+                announceSet("Work");
+            }
+        }
+
+        function announceSet(action) {
+            let setMsg = "";
+            if (currentSet === 1) {
+                setMsg = "First Set.";
+            } else if (currentSet === totalSets) {
+                setMsg = "Final Set.";
+            } else {
+                setMsg = `Set ${currentSet}.`;
+            }
+            speak(`${setMsg} ${action}`);
+        }
+
+        function completeWorkout() {
+            clearInterval(timer);
+            timer = null;
+            phase = 'idle';
+            overlay.classList.remove('hidden');
+            speak("Workout Complete! Excellent job!");
+            resetTimerUI();
+        }
+
+        function resetTimerUI() {
+            btnStart.disabled = false;
+            btnStart.innerText = "START";
+            btnStart.classList.replace('bg-zinc-800', 'bg-orange-600');
+        }
+
+        function resetTimer() {
+            clearInterval(timer);
+            timer = null;
+            phase = 'idle';
+            timeLeft = 0;
+            currentSet = 1;
+            resetTimerUI();
+            updateUI();
+            window.speechSynthesis.cancel();
+        }
+
+        btnStart.addEventListener('click', startTimer);
+        btnReset.addEventListener('click', resetTimer);
+        document.getElementById('btn-close-overlay').addEventListener('click', () => {
+            overlay.classList.add('hidden');
+        });
+
+        updateUI();
+    </script>
+</body>
+</html>
